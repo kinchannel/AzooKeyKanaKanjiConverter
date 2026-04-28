@@ -502,12 +502,6 @@ public final class DicdataStore {
                 cache: self.loudstxts[fileID],
                 dictionaryURL: self.dictionaryURL
             )
-            // デバッグ用：絵文字が含まれる場合にCIDを表示
-            for item in items {
-                if item.word.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation }) {
-                    print("DEBUG: Emoji '\(item.word)' found with CID: \(item.lcid), MID: \(item.mid)")
-                }
-            }
             data.append(contentsOf: items)
         }
         return data
