@@ -178,7 +178,11 @@ public final class DicdataStore {
         }
 
         // 一部のASCII文字は共通のエスケープ関数で処理する
-        let identifier = DictionaryBuilder.escapedIdentifier(query)
+        let identifier: String = if query.hasPrefix("shared_") {
+            "shared_\(DictionaryBuilder.escapedIdentifier(String(query.dropFirst(7))))"
+        } else {
+            DictionaryBuilder.escapedIdentifier(query)
+        }
 
         if let louds = LOUDS.load(identifier, dictionaryURL: self.dictionaryURL) {
             self.loudses[query] = louds
@@ -330,9 +334,9 @@ public final class DicdataStore {
             }
             let charIDs = characters.map(self.character2charId(_:))
             let keys: [String] = if useMemory {
-                [String(firstCharacter), "user", "memory"]
+                [String(firstCharacter), "shared_\(firstCharacter)", "user", "memory"]
             } else {
-                [String(firstCharacter), "user"]
+                [String(firstCharacter), "shared_\(firstCharacter)", "user"]
             }
             var updated = false
             var availableMaxIndex = 0
@@ -485,8 +489,12 @@ public final class DicdataStore {
             }
         }
         for (key, value) in dict {
-            // Default dictionary shards are stored under escaped identifiers with concatenated shard suffix
-            let escaped = DictionaryBuilder.escapedIdentifier(identifier)
+            // デフォルト辞書のシャードはエスケープされた識別子の下に、連結されたシャードサフィックスとともに格納される
+            let escaped: String = if identifier.hasPrefix("shared_") {
+                "shared_\(DictionaryBuilder.escapedIdentifier(String(identifier.dropFirst(7))))"
+            } else {
+                DictionaryBuilder.escapedIdentifier(identifier)
+            }
             let fileID = "\(escaped)\(key)"
             data.append(contentsOf: LOUDS.getDataForLoudstxt3(
                 fileID,
@@ -678,6 +686,16 @@ public final class DicdataStore {
 
         result.append(
             contentsOf: self.getDicdataFromLoudstxt3(identifier: first, indices: Set(prefixIndices), state: state)
+                .filter { Self.predictionUsable[$0.rcid] }
+        )
+        // カスタム共有辞書の検索を追加
+        let sharedKey = "shared_\(first)"
+        var sharedPrefixIndices = self.startingFromPrefixSearch(query: sharedKey, charIDs: charIDs, depth: depth, maxCount: maxCount, state: state)
+        if includeExactMatch, sharedPrefixIndices.count < maxCount {
+            sharedPrefixIndices.append(contentsOf: self.perfectMatchingSearch(query: sharedKey, charIDs: charIDs, state: state))
+        }
+        result.append(
+            contentsOf: self.getDicdataFromLoudstxt3(identifier: sharedKey, indices: Set(sharedPrefixIndices), state: state)
                 .filter { Self.predictionUsable[$0.rcid] }
         )
         var userDictIndices = self.startingFromPrefixSearch(query: "user", charIDs: charIDs, maxCount: maxCount, state: state)

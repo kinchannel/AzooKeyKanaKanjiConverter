@@ -30,7 +30,7 @@ public enum DictionaryBuilder {
         if shardByFirstCharacter {
             let groupedByFirst: [Character: [DicdataElement]] = Dictionary(grouping: entries) { e in e.ruby.first ?? "\0" }
             for (fc, group) in groupedByFirst.sorted(by: { $0.key < $1.key }) {
-                let id = escapedIdentifier(String(fc))
+                let id = baseName.isEmpty ? escapedIdentifier(String(fc)) : "\(baseName)_\(escapedIdentifier(String(fc)))"
                 let loudsURL = directoryURL.appendingPathComponent("\(id).louds")
                 let charsURL = directoryURL.appendingPathComponent("\(id).loudschars2")
                 let (bits, chars) = buildLOUDS(entries: group, char2UInt8: char2UInt8)

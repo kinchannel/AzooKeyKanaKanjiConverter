@@ -75,6 +75,15 @@ var targets: [Target] = [
         ],
         swiftSettings: swiftSettings
     ),
+    .executableTarget(
+        name: "SharedDictBuilder",
+        dependencies: [
+            "KanaKanjiConverterModule",
+            "SwiftUtils",
+            .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        ],
+        swiftSettings: swiftSettings
+    ),
     .testTarget(
         name: "SwiftUtilsTests",
         dependencies: ["SwiftUtils"],
