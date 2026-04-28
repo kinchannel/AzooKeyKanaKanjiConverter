@@ -88,7 +88,12 @@ struct LongTermLearningMemory {
     ///   特に、単語の長さが1のとき、値域は`[-5, -8]`となる。一方単語の長さが2であれば値域は`[-3, -6]`であり、長さ4ならば`[-2, -5]`となる。
     fileprivate static func valueForData(metadata: MetadataElement, dicdata: DicdataElement) -> PValue {
         let d = 1 - Double(metadata.count) / 255
-        return PValue(-1 - 4 / Double(dicdata.ruby.count) - 3 * pow(d, 3))
+        let calculated = PValue(-1 - 4 / Double(dicdata.ruby.count) - 3 * pow(d, 3))
+        // 学習によってスコアが元のベーススコアを下回る（順位が落ちる）ことを防ぎます。
+        // また、使用回数に応じて元のスコアから +0.1 〜 +1.5 のボーナスを与え、
+        // よく使う単語が標準の常用漢字（スコアが高い）を確実に追い抜けるようにします。
+        let bonus = PValue(0.1 + (1 - d) * 1.4)
+        return max(calculated, dicdata.baseValue + bonus)
     }
 
     fileprivate struct MetadataBlock {

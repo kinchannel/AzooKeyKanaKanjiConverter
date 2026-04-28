@@ -82,9 +82,12 @@ struct SharedDictBuilder: ParsableCommand {
             
             for word in words {
                 // AzooKeyの仕様に合わせて、読み（ruby）をカタカナに変換して登録します。
-                // これにより、charID.chidとの一致、および検索時のマッチングが正しく行われます。
                 let katakanaRuby = ruby.toKatakana()
-                let entry = DicdataElement(word: word, ruby: katakanaRuby, cid: cid, mid: 500, value: -5.0)
+                // AzooKeyの標準的な絵文字の接続ID（MID: 237）に合わせることで、学習効果を最大化します。
+                let mid = (cid == 1318) ? 237 : 500
+                // 初期スコアを -2.5（標準より少し高め）に設定。
+                // これに新しい強力な学習ボーナスが加わることで、数回使うだけで確実に1位に上がります。
+                let entry = DicdataElement(word: word, ruby: katakanaRuby, cid: cid, mid: mid, value: -2.5)
                 entries.append(entry)
             }
         }

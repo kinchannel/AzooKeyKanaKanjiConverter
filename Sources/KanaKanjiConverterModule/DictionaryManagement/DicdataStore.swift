@@ -496,12 +496,19 @@ public final class DicdataStore {
                 DictionaryBuilder.escapedIdentifier(identifier)
             }
             let fileID = "\(escaped)\(key)"
-            data.append(contentsOf: LOUDS.getDataForLoudstxt3(
+            let items = LOUDS.getDataForLoudstxt3(
                 fileID,
                 indices: value.map { $0 & DictionaryBuilder.localMask },
                 cache: self.loudstxts[fileID],
                 dictionaryURL: self.dictionaryURL
-            ))
+            )
+            // デバッグ用：絵文字が含まれる場合にCIDを表示
+            for item in items {
+                if item.word.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation }) {
+                    print("DEBUG: Emoji '\(item.word)' found with CID: \(item.lcid), MID: \(item.mid)")
+                }
+            }
+            data.append(contentsOf: items)
         }
         return data
     }
