@@ -75,7 +75,9 @@ public struct ConvertRequestOptions: Sendable {
         self.typoCorrectionMode = typoCorrectionMode
 
         if shouldResetMemory {
+            #if DEBUG
             print("Warning: Passing `shouldResetMemory: true` in `ConvertRequestOptions` is deprecated. Use `KanaKanjiConverter.resetMemory` instead.")
+            #endif
         }
     }
 

@@ -230,12 +230,12 @@ public final class KanaKanjiConverter {
     ) -> (predictedText: String, suffixCount: Int) {
         guard options.zenzaiMode.enabled else {
             self.invalidatePredictiveInputCache()
-            print("zenz mode is disabled")
+            debug("zenz mode is disabled")
             return ("", 0)
         }
         guard case .v3 = options.zenzaiMode.versionDependentMode else {
             self.invalidatePredictiveInputCache()
-            print("input prediction requires zenz-v3 models")
+            debug("input prediction requires zenz-v3 models")
             return ("", 0)
         }
         let cacheContext = PredictiveInputCacheContext(
@@ -253,12 +253,12 @@ public final class KanaKanjiConverter {
         }
         guard let zenz = self.getModel(modelURL: options.zenzaiMode.weightURL) else {
             self.invalidatePredictiveInputCache()
-            print("zenz-v3 model unavailable")
+            debug("zenz-v3 model unavailable")
             return ("", 0)
         }
         let source = self.converter.resolvePredictiveInputSource(composingText: composingText, inputStyle: inputStyle)
         if debugPossibleNexts {
-            print("possibleNexts:", source.possibleNexts)
+            debug("possibleNexts:", source.possibleNexts)
         }
         let predictedText = zenz.predictNextInputText(
             leftSideContext: leftSideContext,
@@ -606,7 +606,7 @@ public final class KanaKanjiConverter {
                 N_best: 5,
                 dicdataStoreState: self.dicdataStoreState
             )
-            print(fullClause.text, predictions)
+            debug(fullClause.text, predictions)
             candidates.append(contentsOf: consume predictions)
         }
         if !candidates.isEmpty {

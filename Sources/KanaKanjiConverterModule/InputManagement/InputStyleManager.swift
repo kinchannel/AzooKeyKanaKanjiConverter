@@ -23,7 +23,7 @@ public final class InputStyleManager {
             return self.tables[id]!
         case .tableName(let name):
             guard let table = self.tables[id] else {
-                print("Warning: Input table \(name) not found. Register the table with `InputStyleManager.registerInputStyle` first.")
+                debug("Warning: Input table \(name) not found. Register the table with `InputStyleManager.registerInputStyle` first.")
                 return .empty
             }
             return table
