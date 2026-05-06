@@ -57,22 +57,31 @@ struct SharedDictBuilder: ParsableCommand {
 
         let content = try String(contentsOf: url)
         
-        // 正規表現で "読み": ["候補1", "候補2"] を抽出
-        // 非常にシンプルなパースですが、現在のファイル形式には対応可能です
-        let pattern = "\"([^\"]+)\":\\s*\\[([^\\]]+)\\]"
+        // 正規表現で "読み": ["候補1", "候補2"], // score: -10.0 を抽出
+        // scoreコメントはオプションです。カンマが存在する場合も考慮します。
+        let pattern = "\"([^\"]+)\":\\s*\\[([^\\]]+)\\](?:\\s*,)?(?:\\s*//\\s*score:\\s*(-?\\d+(?:\\.\\d+)?))?"
         let regex = try NSRegularExpression(pattern: pattern, options: [])
         let nsRange = NSRange(content.startIndex..<content.endIndex, in: content)
         
         var entries: [DicdataElement] = []
         
         regex.enumerateMatches(in: content, options: [], range: nsRange) { match, _, _ in
-            guard let match = match, match.numberOfRanges == 3 else { return }
+            guard let match = match, match.numberOfRanges >= 3 else { return }
             
             let rubyRange = Range(match.range(at: 1), in: content)!
             let wordsRange = Range(match.range(at: 2), in: content)!
             
             let ruby = String(content[rubyRange])
             let wordsString = String(content[wordsRange])
+            
+            // スコアの抽出 (存在しない場合はデフォルトの -2.5)
+            var score: Float = -2.5
+            if match.numberOfRanges >= 4, match.range(at: 3).location != NSNotFound {
+                let scoreRange = Range(match.range(at: 3), in: content)!
+                if let parsedScore = Float(content[scoreRange]) {
+                    score = parsedScore
+                }
+            }
             
             // 候補リストを分割 (カンマと引用符を除去)
             let words = wordsString.components(separatedBy: ",")
@@ -85,9 +94,9 @@ struct SharedDictBuilder: ParsableCommand {
                 let katakanaRuby = ruby.toKatakana()
                 // AzooKeyの標準的な絵文字の接続ID（MID: 237）に合わせることで、学習効果を最大化します。
                 let mid = (cid == 1318) ? 237 : 500
-                // 初期スコアを -2.5（標準より少し高め）に設定。
-                // これに新しい強力な学習ボーナスが加わることで、数回使うだけで確実に1位に上がります。
-                let entry = DicdataElement(word: word, ruby: katakanaRuby, cid: cid, mid: mid, value: -2.5)
+                
+                // 解析されたスコア（またはデフォルト値）を使用
+                let entry = DicdataElement(word: word, ruby: katakanaRuby, cid: cid, mid: mid, value: score)
                 entries.append(entry)
             }
         }
