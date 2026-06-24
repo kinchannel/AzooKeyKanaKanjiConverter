@@ -1198,8 +1198,47 @@ public final class KanaKanjiConverter {
         var results: [PostCompositionPredictionCandidate] = []
         var seenCandidates: Set<String> = []
 
-        results.append(contentsOf: emojiCandidates.suffix(3))
-        for c in emojiCandidates.suffix(3) {
+        // 絵文字候補を選択（履歴優先 ＋ 不足分は辞書先頭の代表候補で補完）
+        var selectedEmojis: [PostCompositionPredictionCandidate] = []
+        if emojiCandidates.count >= 4 {
+            let recentEmojis = UserDefaults.standard.stringArray(forKey: "emoji_recent_used") ?? []
+            
+            // 1. 履歴に含まれる候補を、最近使われた順（重複なく）に抽出
+            var historyMatched: [PostCompositionPredictionCandidate] = []
+            for recent in recentEmojis {
+                let normalizedRecent = recent.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "")
+                if let matched = emojiCandidates.first(where: { 
+                    $0.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "") == normalizedRecent 
+                }) {
+                    if !historyMatched.contains(where: { $0.text == matched.text }) {
+                        historyMatched.append(matched)
+                    }
+                }
+            }
+            
+            // 2. 履歴にない残りの候補を、辞書順で抽出
+            let dictRemaining = emojiCandidates.filter { candidate in
+                let normCandidate = candidate.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "")
+                return !historyMatched.contains(where: { 
+                    $0.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "") == normCandidate 
+                })
+            }
+            
+            // 3. まず履歴から最大3枠追加
+            selectedEmojis.append(contentsOf: historyMatched.prefix(3))
+            
+            // 4. 3枠に満たない不足分を、辞書の残りの先頭から補完
+            let neededCount = 3 - selectedEmojis.count
+            if neededCount > 0 {
+                selectedEmojis.append(contentsOf: dictRemaining.prefix(neededCount))
+            }
+        } else {
+            // 3つ以下の場合は、デフォルトの先頭3つ（prefix(3)）を表示
+            selectedEmojis = Array(emojiCandidates.prefix(3))
+        }
+
+        results.append(contentsOf: selectedEmojis)
+        for c in selectedEmojis {
             seenCandidates.insert(c.text)
         }
         // 残りの半分。ただしzeroHintResultsが足りない場合は全部で10個になるようにする。
