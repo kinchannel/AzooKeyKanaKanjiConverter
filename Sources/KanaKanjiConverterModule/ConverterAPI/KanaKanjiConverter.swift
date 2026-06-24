@@ -1203,25 +1203,39 @@ public final class KanaKanjiConverter {
         if emojiCandidates.count >= 4 {
             let recentEmojis = UserDefaults.standard.stringArray(forKey: "emoji_recent_used") ?? []
             
+            // 0. 候補を事前に一度だけ正規化して一時配列を構築
+            struct NormalizedCandidate {
+                let original: PostCompositionPredictionCandidate
+                let normalizedText: String
+            }
+            let normalizedCandidates = emojiCandidates.map { candidate in
+                NormalizedCandidate(
+                    original: candidate,
+                    normalizedText: candidate.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "")
+                )
+            }
+            
             // 1. 履歴に含まれる候補を、最近使われた順（重複なく）に抽出
             var historyMatched: [PostCompositionPredictionCandidate] = []
+            var historyMatchedNormalizedSet = Set<String>()
+            
             for recent in recentEmojis {
                 let normalizedRecent = recent.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "")
-                if let matched = emojiCandidates.first(where: { 
-                    $0.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "") == normalizedRecent 
-                }) {
-                    if !historyMatched.contains(where: { $0.text == matched.text }) {
-                        historyMatched.append(matched)
-                    }
+                if historyMatchedNormalizedSet.contains(normalizedRecent) {
+                    continue
+                }
+                if let matched = normalizedCandidates.first(where: { $0.normalizedText == normalizedRecent }) {
+                    historyMatched.append(matched.original)
+                    historyMatchedNormalizedSet.insert(normalizedRecent)
                 }
             }
             
             // 2. 履歴にない残りの候補を、辞書順で抽出
-            let dictRemaining = emojiCandidates.filter { candidate in
-                let normCandidate = candidate.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "")
-                return !historyMatched.contains(where: { 
-                    $0.text.replacingOccurrences(of: "\u{FE0F}", with: "").replacingOccurrences(of: "\u{FE0E}", with: "") == normCandidate 
-                })
+            let dictRemaining = normalizedCandidates.compactMap { candidate -> PostCompositionPredictionCandidate? in
+                if historyMatchedNormalizedSet.contains(candidate.normalizedText) {
+                    return nil
+                }
+                return candidate.original
             }
             
             // 3. まず履歴から最大3枠追加
