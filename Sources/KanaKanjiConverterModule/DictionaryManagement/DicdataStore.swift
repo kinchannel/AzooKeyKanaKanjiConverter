@@ -111,6 +111,15 @@ public final class DicdataStore {
         self.importedLoudses.remove("user")
     }
 
+    /// メモリ警告時やキーボード非表示時に、動的にロードされた辞書キャッシュを破棄してメモリを解放する
+    public func purgeDictionaryCache() {
+        self.loudses.removeAll()
+        self.loudstxts.removeAll()
+        self.importedLoudses.removeAll()
+        self.ccParsed = .init(repeating: false, count: self.cidCount)
+        self.ccLines.removeAll()
+    }
+
     /// ペナルティ関数。文字数で決める。
     @inlinable static func getPenalty(data: borrowing DicdataElement) -> PValue {
         -2.0 / PValue(data.word.count)

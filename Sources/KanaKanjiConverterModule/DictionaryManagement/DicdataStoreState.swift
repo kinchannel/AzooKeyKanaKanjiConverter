@@ -90,6 +90,15 @@ package final class DicdataStoreState {
         self.memoryHasLoaded = false
     }
 
+    /// ロード済みのユーザー辞書・ショートカット・学習メモリのLOUDSキャッシュをクリアする
+    package func purgeCaches() {
+        self.userDictionaryLOUDS = nil
+        self.userDictionaryHasLoaded = false
+        self.userShortcutsLOUDS = nil
+        self.userShortcutsHasLoaded = false
+        self.resetMemoryLOUDSCache()
+    }
+
     func saveMemory() {
         self.learningMemoryManager.save()
         self.resetMemoryLOUDSCache()

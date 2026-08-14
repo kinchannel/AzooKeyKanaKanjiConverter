@@ -93,6 +93,13 @@ public final class KanaKanjiConverter {
         self.lastData = nil
     }
 
+    /// メモリ警告時やキーボード非表示時に、セッション状態のリセットと動的辞書キャッシュの解放を行う
+    public func purgeCaches() {
+        self.stopComposition()
+        self.converter.dicdataStore.purgeDictionaryCache()
+        self.dicdataStoreState.purgeCaches()
+    }
+
     private func getZenzaiPersonalization(mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode?) -> (mode: ConvertRequestOptions.ZenzaiMode.PersonalizationMode, base: EfficientNGram, personal: EfficientNGram)? {
         guard let mode else {
             return nil
