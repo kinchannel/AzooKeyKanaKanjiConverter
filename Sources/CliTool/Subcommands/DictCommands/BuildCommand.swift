@@ -19,8 +19,8 @@ extension Subcommands.Dict {
         @Flag(name: [.customShort("c"), .customLong("clean")], help: "Cleans target directory.")
         var cleanTargetDirectory = false
 
-        @Flag(name: [.customShort("v"), .customLong("verbose")], help: "Verbose logs.")
-        var verbose = false
+        @Flag(name: [.customLong("louds_only")], help: "Build only LOUDS files, skip cb and mm costs.")
+        var loudsOnly = false
     }
 }
 
@@ -76,28 +76,30 @@ extension Subcommands.Dict.Build {
             try Self.writeGitKeep(targetDirectory: targetDirectoryURL)
         }
 
-        print("Done!")
+        print("Done LOUDS generation!")
 
-        let workDirectoryURL = URL(fileURLWithPath: self.workingDirectory, isDirectory: true)
-        if cleanTargetDirectory {
-            let cbDirectoryURL = workDirectoryURL.appendingPathComponent("cb", isDirectory: true)
-            print("Cleans target directory \(cbDirectoryURL.path)...")
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: cbDirectoryURL, includingPropertiesForKeys: nil)
-            for fileURL in fileURLs {
-                try FileManager.default.removeItem(at: fileURL)
+        if !loudsOnly {
+            let workDirectoryURL = URL(fileURLWithPath: self.workingDirectory, isDirectory: true)
+            if cleanTargetDirectory {
+                let cbDirectoryURL = workDirectoryURL.appendingPathComponent("cb", isDirectory: true)
+                print("Cleans target directory \(cbDirectoryURL.path)...")
+                let fileURLs = try FileManager.default.contentsOfDirectory(at: cbDirectoryURL, includingPropertiesForKeys: nil)
+                for fileURL in fileURLs {
+                    try FileManager.default.removeItem(at: fileURL)
+                }
+                let mmBinaryFileURL = workDirectoryURL.appendingPathComponent("mm.binary", isDirectory: false)
+                try FileManager.default.removeItem(at: mmBinaryFileURL)
+                print("Done!")
             }
-            let mmBinaryFileURL = workDirectoryURL.appendingPathComponent("mm.binary", isDirectory: false)
-            try FileManager.default.removeItem(at: mmBinaryFileURL)
-            print("Done!")
+            let builder = CostBuilder(workDirectory: workDirectoryURL)
+            print("Generates binary files into \(workDirectoryURL.path)...")
+            try builder.build()
+            if self.addGitKeepFile {
+                print("Adds .gitkeep file into \(workDirectoryURL.path)...")
+                try builder.writeGitKeep()
+            }
+            print("Done Cost generation!")
         }
-        let builder = CostBuilder(workDirectory: workDirectoryURL)
-        print("Generates binary files into \(workDirectoryURL.path)...")
-        try builder.build()
-        if self.addGitKeepFile {
-            print("Adds .gitkeep file into \(workDirectoryURL.path)...")
-            try builder.writeGitKeep()
-        }
-        print("Done!")
     }
 }
 

@@ -991,4 +991,58 @@ final class ConverterTests: XCTestCase {
         }
         return false
     }
+
+    func testSumireVocabularyConversion() async throws {
+        let converter = KanaKanjiConverter.withDefaultDictionary()
+        var options = requestOptions()
+        options.requireJapanesePrediction = .autoMix
+
+        // 1. 「ちかくかびん」-> 完全一致第1位が「知覚過敏」
+        do {
+            var c = ComposingText()
+            c.insertAtCursorPosition("ちかくかびん", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: options)
+            print("ちかくかびん 変換候補:", results.mainResults.prefix(3).map { "\($0.text)(\($0.value))" })
+            XCTAssertEqual(results.mainResults.first?.text, "知覚過敏")
+        }
+
+        // 2. 「ちかくか」-> 予測候補第1位が「知覚過敏」
+        do {
+            var c = ComposingText()
+            c.insertAtCursorPosition("ちかくか", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: options)
+            print("ちかくか 予測候補:", results.mainResults.prefix(3).map { "\($0.text)(\($0.value))" })
+            XCTAssertEqual(results.mainResults.first?.text, "知覚過敏")
+        }
+
+        // 3. 「おやがちゃ」-> 「親ガチャ」
+        do {
+            var c = ComposingText()
+            c.insertAtCursorPosition("おやがちゃ", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: options)
+            print("おやがちゃ 変換候補:", results.mainResults.prefix(3).map { "\($0.text)(\($0.value))" })
+            XCTAssertEqual(results.mainResults.first?.text, "親ガチャ")
+        }
+
+        // 4. 「きんまくりりーす」-> 「筋膜リリース」
+        do {
+            var c = ComposingText()
+            c.insertAtCursorPosition("きんまくりりーす", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: options)
+            print("きんまくりりーす 変換候補:", results.mainResults.prefix(3).map { "\($0.text)(\($0.value))" })
+            XCTAssertEqual(results.mainResults.first?.text, "筋膜リリース")
+        }
+
+        // 5. 「こっかくしんだん」-> 「骨格診断」
+        do {
+            var c = ComposingText()
+            c.insertAtCursorPosition("こっかくしんだん", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: options)
+            print("こっかくしんだん 変換候補:", results.mainResults.prefix(3).map { "\($0.text)(\($0.value))" })
+            XCTAssertEqual(results.mainResults.first?.text, "骨格診断")
+        }
+    }
 }
+
+
+

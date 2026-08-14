@@ -7,12 +7,18 @@ extension Subcommands.Dict {
         @Option(name: [.customLong("dictionary_dir"), .customShort("d")], help: "The directory for dictionary data.")
         var dictionaryDirectory: String = "./Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_dictionary_storage/Dictionary"
 
-        @Option(name: [.customLong("output"), .customShort("o")], help: "The output CSV path.")
-        var outputPath: String = "../existing_words.csv"
+        @Option(name: [.customLong("output"), .customShort("o")], help: "The output file path.")
+        var outputPath: String = "../existing_words.tsv"
+
+        @Option(name: [.customLong("format"), .customShort("f")], help: "Output format: 'csv' (ruby,word) or 'tsv' (ruby,word,lcid,rcid,mid,score).")
+        var format: String = "tsv"
+
+        @Flag(name: [.customLong("include_shared"), .customShort("s")], help: "Include shared_*.louds files in dump.")
+        var includeShared: Bool = false
 
         static let configuration = CommandConfiguration(
             commandName: "dump",
-            abstract: "Dump all words in default dictionary into a CSV file"
+            abstract: "Dump all words in default dictionary into a file"
         )
 
         mutating func run() throws {
@@ -29,14 +35,21 @@ extension Subcommands.Dict {
 
             let files = try FileManager.default.contentsOfDirectory(at: loudsDir, includingPropertiesForKeys: nil)
             
-            // *.loudsファイルを探し、それがshared_で始まらないものを抽出する
-            let loudsFiles = files.filter { $0.pathExtension == "louds" && !$0.lastPathComponent.hasPrefix("shared_") }
+            let loudsFiles = files.filter { file in
+                guard file.pathExtension == "louds" else { return false }
+                if !includeShared && file.lastPathComponent.hasPrefix("shared_") {
+                    return false
+                }
+                return true
+            }
             
             print("Found \(loudsFiles.count) dictionary shard files.")
 
-            var uniqueWords: [String: Set<String>] = [:]
             let store = DicdataStore(dictionaryURL: dictURL)
             let state = store.prepareState()
+
+            var allElements: [DicdataElement] = []
+            var uniqueWords: [String: Set<String>] = [:]
 
             for loudsFile in loudsFiles {
                 let filename = loudsFile.deletingPathExtension().lastPathComponent
@@ -44,51 +57,70 @@ extension Subcommands.Dict {
                     continue
                 }
 
-                // すべてのノードインデックスを取得
                 let nodeIndices = louds.prefixNodeIndices(chars: [], maxDepth: .max, maxCount: .max)
                 if nodeIndices.isEmpty { continue }
 
-                // ファイル名から元の識別子を復元
                 let rawTarget = unescapeIdentifier(filename)
 
                 let dicdata = store.getDicdataFromLoudstxt3(identifier: rawTarget, indices: nodeIndices, state: state)
                 for element in dicdata {
                     if !element.ruby.isEmpty && !element.word.isEmpty {
-                        uniqueWords[element.ruby, default: []].insert(element.word)
+                        if format == "tsv" {
+                            allElements.append(element)
+                        } else {
+                            uniqueWords[element.ruby, default: []].insert(element.word)
+                        }
                     }
                 }
             }
 
             print("Writing output to \(outputPath)...")
-            var csvContent = "よみ,表記\n"
             var count = 0
-            for (ruby, words) in uniqueWords.sorted(by: { $0.key < $1.key }) {
-                for word in words.sorted() {
-                    let escapedRuby = escapeCSVField(ruby)
-                    let escapedWord = escapeCSVField(word)
-                    csvContent += "\(escapedRuby),\(escapedWord)\n"
+            var outputContent = ""
+
+            if format == "tsv" {
+                // ruby \t word \t lcid \t rcid \t mid \t score
+                // Sort by ruby
+                allElements.sort { $0.ruby < $1.ruby }
+                for el in allElements {
+                    outputContent += "\(el.ruby)\t\(el.word)\t\(el.lcid)\t\(el.rcid)\t\(el.mid)\t\(el.value())\n"
                     count += 1
+                }
+            } else {
+                outputContent = "よみ,表記\n"
+                for (ruby, words) in uniqueWords.sorted(by: { $0.key < $1.key }) {
+                    for word in words.sorted() {
+                        let escapedRuby = escapeCSVField(ruby)
+                        let escapedWord = escapeCSVField(word)
+                        outputContent += "\(escapedRuby),\(escapedWord)\n"
+                        count += 1
+                    }
                 }
             }
 
-            try csvContent.write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: .utf8)
+            try outputContent.write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: .utf8)
 
             print(
                 """
                 === Extraction Summary ===
                 - Output path: \(outputPath)
-                - Unique rubies (よみ): \(uniqueWords.count)
-                - Total word pairs (単語ペア数): \(count)
+                - Format: \(format)
+                - Total entries dumped: \(count)
                 - Time elapsed: \(Date().timeIntervalSince(start))s
                 """
             )
         }
 
         private func unescapeIdentifier(_ filename: String) -> String {
-            guard filename.hasPrefix("[") && filename.hasSuffix("]") else {
-                return filename
+            var name = filename
+            let isShared = name.hasPrefix("shared_")
+            if isShared {
+                name = String(name.dropFirst(7))
             }
-            let content = filename.dropFirst().dropLast()
+            guard name.hasPrefix("[") && name.hasSuffix("]") else {
+                return isShared ? "shared_\(name)" : name
+            }
+            let content = name.dropFirst().dropLast()
             let parts = content.components(separatedBy: "_")
             var utf16CodeUnits: [UInt16] = []
             for part in parts {
@@ -96,7 +128,8 @@ extension Subcommands.Dict {
                     utf16CodeUnits.append(val)
                 }
             }
-            return String(decoding: utf16CodeUnits, as: UTF16.self)
+            let unescaped = String(decoding: utf16CodeUnits, as: UTF16.self)
+            return isShared ? "shared_\(unescaped)" : unescaped
         }
 
         private func escapeCSVField(_ field: String) -> String {

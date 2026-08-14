@@ -134,7 +134,7 @@ final class DictionaryBuilderTests: XCTestCase {
         try DictionaryBuilder.exportDictionary(
             entries: entries,
             to: loudsDir,
-            baseName: "ignored",
+            baseName: "",
             shardByFirstCharacter: true,
             char2UInt8: cmap
         )
@@ -247,7 +247,7 @@ final class DictionaryBuilderTests: XCTestCase {
         try DictionaryBuilder.exportDictionary(
             entries: entries,
             to: loudsDir,
-            baseName: "ignored",
+            baseName: "",
             shardByFirstCharacter: true,
             char2UInt8: cmap
         )
