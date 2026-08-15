@@ -47,9 +47,12 @@ public final class DicdataStore {
         self.wordNgramStore = WordNgramStore.load(dictionaryURL: self.dictionaryURL)
 
         do {
-            let string = try String(contentsOf: self.dictionaryURL.appendingPathComponent("louds/charID.chid", isDirectory: false), encoding: String.Encoding.utf8)
+            let chidURL = self.dictionaryURL.appendingPathComponent("louds/charID.chid", isDirectory: false)
+            let string = try String(contentsOf: chidURL, encoding: String.Encoding.utf8)
             charsID = [Character: UInt8].init(uniqueKeysWithValues: string.enumerated().map {($0.element, UInt8($0.offset))})
+            NSLog("[DicdataStore] Successfully loaded charID.chid from %@ (chars: %d, word_ngram: %@)", chidURL.path, charsID.count, self.wordNgramStore != nil ? "OK" : "NIL")
         } catch {
+            NSLog("[DicdataStore ERROR] Failed to load charID.chid from %@: %@", self.dictionaryURL.path, error.localizedDescription)
             debug("Error: louds/charID.chidが存在しません。このエラーは深刻ですが、テスト時には無視できる場合があります。Description: \(error)")
         }
         do {
