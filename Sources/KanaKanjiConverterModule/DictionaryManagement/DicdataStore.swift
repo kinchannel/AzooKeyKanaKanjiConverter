@@ -35,12 +35,16 @@ public final class DicdataStore {
     private let cidCount = 1319
 
     private let dictionaryURL: URL
+    package private(set) var wordNgramStore: WordNgramStore?
 
     private let numberFormatter = NumberFormatter()
     /// 初期化時のセットアップ用の関数。プロパティリストを読み込み、連接確率リストを読み込んで行分割し保存しておく。
     private func setup(preloadDictionary: Bool) {
         numberFormatter.numberStyle = .spellOut
         numberFormatter.locale = .init(identifier: "ja-JP")
+
+        // word_ngram.binary の読み込み (mmap)
+        self.wordNgramStore = WordNgramStore.load(dictionaryURL: self.dictionaryURL)
 
         do {
             let string = try String(contentsOf: self.dictionaryURL.appendingPathComponent("louds/charID.chid", isDirectory: false), encoding: String.Encoding.utf8)
@@ -61,6 +65,11 @@ public final class DicdataStore {
         if preloadDictionary {
             self.preloadDictionary()
         }
+    }
+
+    /// 2単語間の共起スコア（Word Bigram Score）を取得
+    package func getWordNgramScore(prevWord: String, currentWord: String) -> PValue {
+        self.wordNgramStore?.getScore(prevWord: prevWord, currentWord: currentWord) ?? 0
     }
 
     /// ファイルI/Oの遅延を減らすために、辞書を事前に読み込む関数。

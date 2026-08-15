@@ -69,6 +69,9 @@ extension Kana2Kanji {
                 rawNodes: rawNodes
             )
         }
+        // 長文入力（8文字超）の場合は動的にビーム幅を拡大
+        let effectiveNBest = surfaceCount > 8 ? max(N_best, 30) : N_best
+
         // 「i文字目から始まるnodes」に対して
         for (isHead, nodeArray) in lattice.indexedNodes(indices: latticeIndices) {
             // それぞれのnodeに対して
@@ -79,8 +82,12 @@ extension Kana2Kanji {
                 if self.dicdataStore.shouldBeRemoved(data: node.data) {
                     continue
                 }
-                // 生起確率を取得する。
-                let wValue: PValue = node.data.value()
+                // 生起確率を取得する。長文文章中の絵文字ノードにはペナルティを課して通常単語を保護
+                var wValue: PValue = node.data.value()
+                if surfaceCount > 6 && (node.data.lcid == 1318 || node.data.mid == 237) {
+                    wValue -= 15.0
+                }
+
                 if isHead {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
@@ -94,7 +101,7 @@ extension Kana2Kanji {
                 if nextIndex.surfaceIndex == surfaceCount {
                     self.updateResultNode(with: node, resultNode: result)
                 } else {
-                    self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: N_best)
+                    self.updateNextNodes(with: node, nextNodes: lattice[index: nextIndex], nBest: effectiveNBest)
                 }
             }
         }
@@ -115,7 +122,10 @@ extension Kana2Kanji {
                 continue
             }
             // クラスの連続確率を計算する。
-            let ccValue: PValue = ccLatter.get(nextnode.data.lcid)
+            var ccValue: PValue = ccLatter.get(nextnode.data.lcid)
+            // 単語N-gram言語モデル（Word Bigram）スコアを加算
+            ccValue += self.dicdataStore.getWordNgramScore(prevWord: node.data.word, currentWord: nextnode.data.word)
+
             // nodeの持っている全てのprevnodeに対して
             for (index, value) in node.values.enumerated() {
                 let newValue: PValue = ccValue + value

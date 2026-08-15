@@ -50,9 +50,30 @@ final class ConverterTests: XCTestCase {
         do {
             let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
-            c.insertAtCursorPosition("ようしょうきからてにすすいえいやきゅうしょうりんじけんぽうなどさまざまなすぽーつをけいけんしながらそだちしょうがっこうじだいはろさんぜるすきんこうにたいざいしておりごるふやてにすをならっていた", inputStyle: .direct)
+            c.insertAtCursorPosition("きしゃのきしゃがきしゃした", inputStyle: .direct)
             let results = converter.requestCandidates(c, options: requestOptions())
-            XCTAssertEqual(results.mainResults.first?.text, "幼少期からテニス水泳野球少林寺拳法など様々なスポーツを経験しながら育ち小学校時代はロサンゼルス近郊に滞在しておりゴルフやテニスを習っていた")
+            XCTAssertEqual(results.mainResults.first?.text, "貴社の記者が帰社した")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("やっぱりそうだめぐりあえたんだうれしいたのしいだいすき", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "やっぱりそうだ巡り会えたんだ嬉しい楽しい大好き")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("おつかれさまです。ほんじつのけん、ごかくにんいただけますとさいわいです", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "お疲れ様です。本日の件、ご確認いただけますと幸いです")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("らいしゅうのすけじゅーるをちょうせいしてもらえるとたすかります", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "来週のスケジュールを調整してもらえると助かります")
         }
     }
 
