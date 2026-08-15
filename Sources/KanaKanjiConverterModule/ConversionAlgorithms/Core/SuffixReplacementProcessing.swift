@@ -117,7 +117,11 @@ extension Kana2Kanji {
                 let wValue = node.data.value()
                 if i == 0 {
                     // valuesを更新する
-                    node.values = node.prevs.map {$0.totalValue + wValue + self.dicdataStore.getCCValue($0.data.rcid, node.data.lcid)}
+                    node.values = node.prevs.map { prev in
+                        var v = prev.totalValue + wValue + self.dicdataStore.getCCValue(prev.data.rcid, node.data.lcid)
+                        v += self.dicdataStore.getWordNgramScore(prevWord: prev.data.word, currentWord: node.data.word)
+                        return v
+                    }
                 } else {
                     // valuesを更新する
                     node.values = node.prevs.map {$0.totalValue + wValue}

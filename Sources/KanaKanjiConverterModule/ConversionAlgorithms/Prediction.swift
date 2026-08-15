@@ -225,7 +225,25 @@ extension Kana2Kanji {
             let ccValue: PValue = ccLatter.get(data.lcid)
             let penalty: PValue = -PValue(data.ruby.count &- lastRuby.count) * 1.0   // 文字数差をペナルティとする
             let wValue: PValue = data.value()
-            let newValue: PValue = lastCandidate.value + mmValue + ccValue + wValue + penalty - ignoreCCValue
+
+            var wordNgramScore: PValue = 0
+            if let lastWord = lastCandidate.data.last?.word {
+                wordNgramScore += self.dicdataStore.getWordNgramScore(prevWord: lastWord, currentWord: data.word)
+                if lastWord.count <= 2 && (lastWord == "で" || lastWord == "に" || lastWord == "を" || lastWord == "が" || lastWord == "へ" || lastWord == "と" || lastWord == "から" || lastWord == "まで" || lastWord == "は" || lastWord == "も") {
+                    if lastCandidate.data.count >= 2 {
+                        let prevReal = lastCandidate.data[lastCandidate.data.count - 2].word
+                        let skip = self.dicdataStore.getWordNgramScore(prevWord: prevReal, currentWord: data.word)
+                        if skip > 0 {
+                            wordNgramScore += skip * 0.9
+                        }
+                    }
+                }
+            }
+
+            // 絵文字が通常の実質語（漢字・ひらがな）を追い越して文脈予測の先頭を奪わないよう抑制
+            let emojiPenalty: PValue = (data.lcid == 1318) ? -10.0 : 0.0
+
+            let newValue: PValue = lastCandidate.value + mmValue + ccValue + wValue + penalty + wordNgramScore + emojiPenalty - ignoreCCValue
             // 追加すべきindexを取得する
             let lastindex: Int = (result.lastIndex(where: {$0.value >= newValue}) ?? -1) + 1
             if lastindex >= N_best {
