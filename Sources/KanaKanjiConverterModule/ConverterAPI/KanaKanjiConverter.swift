@@ -1089,14 +1089,10 @@ public final class KanaKanjiConverter {
         // TODO: 元々はsuffixになっていないが、文節確定の後であるケースで、確定された文節を考慮できるようにする
         // へんかん|する → 変換 する|　のようなパターンで、previousInputData: へんかん, inputData: する, となることがある
 
-        let diff = inputData.differenceSuffix(to: previousInputData)
-
-        debug("\(#function): 最後尾文字置換用の関数を呼びます、差分は\(diff)")
-        let result = converter.kana2lattice_changed(
+        debug("\(#function): 全文ラティス構築（高精度探索）を実行します、入力は\(inputData.convertTarget)")
+        let result = converter.kana2lattice_all(
             inputData,
             N_best: N_best,
-            counts: diff,
-            previousResult: (inputData: previousInputData, lattice: self.currentSessionState.lattice),
             needTypoCorrection: needTypoCorrection,
             dicdataStoreState: self.dicdataStoreState
         )

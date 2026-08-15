@@ -78,9 +78,14 @@ final class ConverterTests: XCTestCase {
         do {
             let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
-            c.insertAtCursorPosition("こうそくであるく", inputStyle: .direct)
-            let results = converter.requestCandidates(c, options: requestOptions())
-            XCTAssertEqual(results.mainResults.first?.text, "高速で歩く")
+            let chars = ["こ", "う", "そ", "く", "で", "あ", "る", "く"]
+            var lastResults: ConversionResult?
+            for ch in chars {
+                c.insertAtCursorPosition(ch, inputStyle: .direct)
+                lastResults = converter.requestCandidates(c, options: requestOptions())
+            }
+            print("DEBUG [逐次フリック入力テスト: こうそくであるく] Top candidate: \(String(describing: lastResults?.mainResults.first?.text))")
+            XCTAssertEqual(lastResults?.mainResults.first?.text, "高速で歩く")
         }
         do {
             let converter = KanaKanjiConverter.withDefaultDictionary()
