@@ -45,19 +45,64 @@ def get_conversational_and_business_corpus() -> list[str]:
                     print(f"  ✗ Failed to read {fname}: {e}")
     return texts
 
-def load_wikipedia_corpus(cache_dir: str) -> list[str]:
+def fetch_or_load_wikipedia_corpus(cache_dir: str) -> list[str]:
     """
-    ローカルキャッシュされたWikipediaコーパス（約57トピック・約88万文字）を完全オフラインで安全に読み込む。
+    ローカルキャッシュされたWikipediaコーパス（約57トピック・約88万文字）があれば読み込み、
+    存在しない場合はWikipedia APIから自動取得してキャッシュ保存する。
     """
+    os.makedirs(cache_dir, exist_ok=True)
     cache_file = os.path.join(cache_dir, "wiki_corpus.json")
     if os.path.exists(cache_file):
         print(f"Loading local Wikipedia corpus from {cache_file}...")
-        with open(cache_file, "r", encoding="utf-8") as f:
-            texts = json.load(f)
-            print(f"  ✓ Loaded {len(texts)} Wikipedia articles offline.")
-            return texts
-    print("  ⚠ No local wiki_corpus.json found. Proceeding with static corpora.")
-    return []
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                texts = json.load(f)
+                if len(texts) >= 20:
+                    print(f"  ✓ Loaded {len(texts)} Wikipedia articles from local cache.")
+                    return texts
+        except Exception as e:
+            print(f"  ⚠ Failed to load cache: {e}. Re-fetching...")
+
+    topics = [
+        "日本", "東京", "経済", "文学", "科学", "情報工学", "人工知能", "言語", "日本語",
+        "スマートフォン", "インターネット", "教育", "政治", "法律", "医療", "健康",
+        "心理学", "音楽", "映画", "料理", "歴史", "地理", "哲学", "社会",
+        "企業", "仕事", "旅行", "スポーツ", "自然", "宇宙",
+        "交通", "鉄道", "自動車", "通信", "環境", "エネルギー", "農業",
+        "夏目漱石", "太宰治", "芥川龍之介", "宮沢賢治", "源氏物語", "枕草子",
+        "国会", "裁判所", "憲法", "金融", "商業", "工業", "貿易",
+        "情報通信技術", "計算機科学", "ソフトウェア", "データベース",
+        "物理学", "化学", "生物学", "地球科学", "天文学"
+    ]
+
+    print(f"Fetching {len(topics)} representative Wikipedia articles with rate-limiting...")
+    corpus_texts = []
+
+    for idx, title in enumerate(topics):
+        encoded_title = urllib.parse.quote(title)
+        url = f"https://ja.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&titles={encoded_title}&format=json"
+
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'AzooKeyBigramBuilder/1.0 (contact: test@example.com)'})
+            with urllib.request.urlopen(req, timeout=15) as res:
+                data = json.loads(res.read().decode('utf-8'))
+                pages = data.get('query', {}).get('pages', {})
+                for pid, page in pages.items():
+                    extract = page.get('extract', '')
+                    if extract:
+                        corpus_texts.append(extract)
+                        print(f"  [{idx+1}/{len(topics)}] ✓ Fetched '{title}': {len(extract):,} chars")
+            time.sleep(0.3)
+        except Exception as e:
+            print(f"  [{idx+1}/{len(topics)}] ✗ Failed to fetch '{title}': {e}")
+            time.sleep(0.5)
+
+    # キャッシュ保存
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(corpus_texts, f, ensure_ascii=False)
+    print(f"Saved {len(corpus_texts)} Wikipedia articles to {cache_file}")
+
+    return corpus_texts
 
 def segment_text_into_words(text: str) -> list[list[str]]:
     """
@@ -106,13 +151,16 @@ def segment_text_into_words(text: str) -> list[list[str]]:
 
     return tokenized_sentences
 
-def train_bigram_statistics(tokenized_sentences: list[list[str]], min_count: int = 2) -> dict[tuple[str, str], float]:
+def train_bigram_statistics(tokenized_sentences: list[list[str]], min_count: int = 1) -> dict[tuple[str, str], float]:
     """
-    大量の文データから単語2-gramのPointwise Mutual Information (PMI) と共起スコアを完全自動算出。
+    大量の文データから単語隣接2-gramおよび助詞スキップ2-gram（Skip Bigram）の
+    Pointwise Mutual Information (PMI) と共起スコアを完全自動算出。
     """
     unigram_counts = Counter()
     bigram_counts = Counter()
     total_bigrams = 0
+
+    case_particles = {"で", "に", "を", "が", "へ", "と", "から", "より", "まで", "は", "も"}
 
     for words in tokenized_sentences:
         for i in range(len(words)):
@@ -122,6 +170,13 @@ def train_bigram_statistics(tokenized_sentences: list[list[str]], min_count: int
                 prev = words[i - 1]
                 bigram_counts[(prev, w)] += 1
                 total_bigrams += 1
+
+                # 助詞スキップ2-gram（Skip-gram: 名詞 ➔ 【助詞】 ➔ 用言・名詞）の自動抽出
+                if prev in case_particles and i >= 2:
+                    head_word = words[i - 2]
+                    if len(head_word) >= 2 and len(w) >= 2:
+                        bigram_counts[(head_word, w)] += 1
+                        total_bigrams += 1
 
     total_unigrams = sum(unigram_counts.values())
     if total_bigrams == 0 or total_unigrams == 0:
@@ -142,9 +197,12 @@ def train_bigram_statistics(tokenized_sentences: list[list[str]], min_count: int
         pmi = math.log2(p_w1_w2 / (p_w1 * p_w2))
         
         # 頻度とPMIを加味したバランス型共起スコア
-        if pmi > 0.4:
-            freq_bonus = math.log10(count + 1) * 1.5
-            score = min(15.0, max(1.5, pmi * 1.2 + freq_bonus))
+        if pmi > 0.2:
+            freq_bonus = math.log10(count + 1) * 2.0
+            if w1 in case_particles:
+                score = min(16.0, max(3.0, pmi * 1.4 + freq_bonus + 1.5))
+            else:
+                score = min(16.0, max(1.5, pmi * 1.3 + freq_bonus))
             scores[(w1, w2)] = score
 
     return scores
@@ -153,7 +211,7 @@ def build_full_corpus_word_ngrams(output_path: str):
     cache_dir = os.path.join(os.path.dirname(__file__), ".corpus_cache")
 
     print("=== Step 1: Loading Multimodal Corpora (Wikipedia + Conversational + Business) ===")
-    corpus_texts = load_wikipedia_corpus(cache_dir)
+    corpus_texts = fetch_or_load_wikipedia_corpus(cache_dir)
     conversational_texts = get_conversational_and_business_corpus()
     
     # 会話・ビジネス表現は頻度重み付け（サンプリング重みを反映）

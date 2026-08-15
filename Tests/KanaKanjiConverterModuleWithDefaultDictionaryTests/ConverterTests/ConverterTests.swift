@@ -71,6 +71,41 @@ final class ConverterTests: XCTestCase {
         do {
             let converter = KanaKanjiConverter.withDefaultDictionary()
             var c = ComposingText()
+            c.insertAtCursorPosition("こうそくではしる", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "高速で走る")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("こうそくであるく", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "高速で歩く")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("くるまでいく", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "車で行く")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("そらをとぶ", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "空を飛ぶ")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
+            c.insertAtCursorPosition("ほんをよむ", inputStyle: .direct)
+            let results = converter.requestCandidates(c, options: requestOptions())
+            XCTAssertEqual(results.mainResults.first?.text, "本を読む")
+        }
+        do {
+            let converter = KanaKanjiConverter.withDefaultDictionary()
+            var c = ComposingText()
             c.insertAtCursorPosition("らいしゅうのすけじゅーるをちょうせいしてもらえるとたすかります", inputStyle: .direct)
             let results = converter.requestCandidates(c, options: requestOptions())
             XCTAssertEqual(results.mainResults.first?.text, "来週のスケジュールを調整してもらえると助かります")

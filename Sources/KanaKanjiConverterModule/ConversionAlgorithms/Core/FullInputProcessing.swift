@@ -109,26 +109,52 @@ extension Kana2Kanji {
     }
 
     func updateResultNode(with node: LatticeNode, resultNode: LatticeNode) {
+        // 文末EOSの適合性スコアを評価
+        // 直前が「ある」「いる」「する」等の用言活用形なのに末尾が唐突な1文字漢字（ク、句、苦等）で終わるゴミパスを抑制
+        var terminalPenalty: PValue = 0
+        if node.data.word.count == 1 {
+            for prev in node.prevs {
+                if prev.data.word == "ある" || prev.data.word == "いる" || prev.data.word == "する" {
+                    terminalPenalty -= 8.0
+                    break
+                }
+            }
+        }
+
         for index in node.prevs.indices {
-            let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index])
+            let newnode: RegisteredNode = node.getRegisteredNode(index, value: node.values[index] + terminalPenalty)
             resultNode.prevs.append(newnode)
         }
     }
     /// N-Best計算を高速に実行しつつ、遷移先ノードを更新する
     func updateNextNodes(with node: LatticeNode, nextNodes: some Sequence<LatticeNode>, nBest: Int) {
         let ccLatter = self.dicdataStore.getCCLatter(node.data.rcid)
+        let isFunctionalParticle = node.data.word.count <= 2 && (node.data.ruby == "で" || node.data.ruby == "に" || node.data.ruby == "を" || node.data.ruby == "が" || node.data.ruby == "へ" || node.data.ruby == "と" || node.data.ruby == "から" || node.data.ruby == "まで" || node.data.ruby == "は" || node.data.ruby == "も")
+
         for nextnode in nextNodes {
             if self.dicdataStore.shouldBeRemoved(data: nextnode.data) {
                 continue
             }
             // クラスの連続確率を計算する。
             var ccValue: PValue = ccLatter.get(nextnode.data.lcid)
-            // 単語N-gram言語モデル（Word Bigram）スコアを加算
+            // 単語N-gram言語モデル（Word Bigram）隣接スコアを加算
             ccValue += self.dicdataStore.getWordNgramScore(prevWord: node.data.word, currentWord: nextnode.data.word)
 
             // nodeの持っている全てのprevnodeに対して
             for (index, value) in node.values.enumerated() {
-                let newValue: PValue = ccValue + value
+                var newValue: PValue = ccValue + value
+
+                // 助詞スキップ2-gram（Skip-gram: 直前実質語 ➔ 【助詞】 ➔ 後続用言・名詞）の自動評価
+                if isFunctionalParticle && index < node.prevs.count {
+                    let prevRealWord = node.prevs[index].data.word
+                    if prevRealWord.count >= 2 {
+                        let skipScore = self.dicdataStore.getWordNgramScore(prevWord: prevRealWord, currentWord: nextnode.data.word)
+                        if skipScore > 0 {
+                            newValue += skipScore * 0.9
+                        }
+                    }
+                }
+
                 // 追加すべきindexを取得する
                 let lastindex: Int = (nextnode.prevs.lastIndex(where: {$0.totalValue >= newValue}) ?? -1) + 1
                 if lastindex == nBest {
