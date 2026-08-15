@@ -27,13 +27,13 @@ struct SharedDictBuilder: ParsableCommand {
         var allEntries: [DicdataElement] = []
 
         // 1. CustomDictionary (CID: 1285 - 一般名詞)
-        allEntries += try parseSwiftDict(url: inputURL.appendingPathComponent("CustomDictionary.swift"), cid: 1285)
+        allEntries += try parseSwiftDict(url: inputURL.appendingPathComponent("CustomDictionary.swift"), cid: 1285, defaultScore: -2.5)
         
         // 2. KaomojiDictionary (CID: 1317 - カスタム顔文字)
-        allEntries += try parseSwiftDict(url: inputURL.appendingPathComponent("KaomojiDictionary.swift"), cid: 1317)
+        allEntries += try parseSwiftDict(url: inputURL.appendingPathComponent("KaomojiDictionary.swift"), cid: 1317, defaultScore: -8.0)
         
         // 3. EmojiDictionary (CID: 1318 - カスタム絵文字)
-        allEntries += try parseSwiftDict(url: inputURL.appendingPathComponent("EmojiDictionary.swift"), cid: 1318)
+        allEntries += try parseSwiftDict(url: inputURL.appendingPathComponent("EmojiDictionary.swift"), cid: 1318, defaultScore: -8.0)
 
         print("Total entries: \(allEntries.count)")
 
@@ -49,7 +49,7 @@ struct SharedDictBuilder: ParsableCommand {
         print("Successfully generated LOUDS files in \(outputURL.path)")
     }
 
-    private func parseSwiftDict(url: URL, cid: Int) throws -> [DicdataElement] {
+    private func parseSwiftDict(url: URL, cid: Int, defaultScore: Float = -2.5) throws -> [DicdataElement] {
         guard FileManager.default.fileExists(atPath: url.path) else {
             print("Warning: File not found at \(url.path)")
             return []
@@ -74,8 +74,8 @@ struct SharedDictBuilder: ParsableCommand {
             let ruby = String(content[rubyRange])
             let wordsString = String(content[wordsRange])
             
-            // スコアの抽出 (存在しない場合はデフォルトの -2.5)
-            var score: Float = -2.5
+            // スコアの抽出 (存在しない場合は引数で指定された defaultScore を使用)
+            var score: Float = defaultScore
             if match.numberOfRanges >= 4, match.range(at: 3).location != NSNotFound {
                 let scoreRange = Range(match.range(at: 3), in: content)!
                 if let parsedScore = Float(content[scoreRange]) {
@@ -101,7 +101,7 @@ struct SharedDictBuilder: ParsableCommand {
             }
         }
         
-        print("Parsed \(url.lastPathComponent): \(entries.count) entries (CID: \(cid))")
+        print("Parsed \(url.lastPathComponent): \(entries.count) entries (CID: \(cid), defaultScore: \(defaultScore))")
         return entries
     }
 }
