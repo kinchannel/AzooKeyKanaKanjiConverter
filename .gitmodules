@@ -1,6 +1,6 @@
 [submodule "Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_dictionary_storage"]
 	path = Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_dictionary_storage
-	url = https://github.com/ensan-hcl/azooKey_dictionary_storage
+	url = https://github.com/kinchannel/azooKey_dictionary_storage.git
 [submodule "Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_emoji_dictionary_storage"]
 	path = Sources/KanaKanjiConverterModuleWithDefaultDictionary/azooKey_emoji_dictionary_storage
 	url = https://github.com/ensan-hcl/azooKey_emoji_dictionary_storage
